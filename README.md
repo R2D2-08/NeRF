@@ -1,5 +1,6 @@
 # Neural Radiance Fields with a Multi-Resolution Hash Encoding
 
+(Still working on finishing the project)
 This project is an implementation of a Neural Radiance Field pipeline with a Multiresolution Hash Encoding. The model takes as input, 5 Dimensional values and produces 3D-rendered images by volume rendering. This repository supports training NeRF models on datasets generated with **COLMAP** using your own images.
 
 ![NeRF Training. Source: Mildenhall et al.](assets/nerf-training.png)
