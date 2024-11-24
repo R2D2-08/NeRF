@@ -7,78 +7,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-def hasher(ind,size): return ind%size
-
-def interpolation(features,fractionalPart):
-
-    x=fractionalPart[:,0].unsqueeze(1)*features[:,1]+(1-fractionalPart[:,0].unsqueeze(1))*features[:,0]
-    
-    y=fractionalPart[:,1].unsqueeze(1)*features[:,3]+(1-fractionalPart[:,1].unsqueeze(1))*features[:,2]
-    
-    z=fractionalPart[:,2].unsqueeze(1)*features[:,5]+(1-fractionalPart[:,2].unsqueeze(1))*features[:,4]
-
-    return (x+y+z)/3
-
-class mlp(nn.Module):
-
-    def __init__(self,hashencoding,hiddenLayer,finalLayer):
-    
-        super(mlp,self).__init__()
-
-        # Apply a multi-resolution hash encoding to the input.
-        self.hashencoding=hashencoding
-        inputDim=hashencoding.levels*hashencoding.features
-        
-        # Unique layers in the MLP.
-        self.fcin=nn.Linear(inputDim,hiddenLayer)
-        self.fcmid=nn.Linear(hiddenLayer,hiddenLayer)
-        self.fcout=nn.Linear(hiddenLayer,finalLayer)
-    
-    def forward(self,x):
-
-        x=F.relu(self.fcin(self.hashencoding(x)))
-        x=F.relu(self.fcmid(x))
-        x=self.fcout(x)
-        
-        return x
-
-class multiResolutionHashEncoding(nn.Module):
-
-    def __init__(self,levels,features,sizeOfTable):
-        
-        super().__init__()
-        
-        self.levels=levels
-        self.features=features
-        self.sizeOfTable=sizeOfTable
-        
-        #for every resolution varying from coarser to the finer ones, hash tables are created
-        self.tables=nn.ModuleList([nn.Parameter(torch.randn(sizeOfTable,features)) for i in range(levels)])
-        self.tables=nn.ParameterList(self.tables)
-    
-    def forward(self,x):
-        
-        # Initialize the result and Iterate over all the levels.
-        result=[]
-        
-        for level in range(self.levels):
-
-            gridResolution=2**(level+1)
-            
-            # Get the voxel that encloses that 3D space point.
-            voxelCoordinates=np.floor(x*gridResolution).long()
-            fractionalPart=x*gridResolution-voxelCoordinates
-
-            # Get a feature vector after hashing the voxel coordinates.
-            hashedResult=hasher(voxelCoordinates.sum(dim=1),self.sizeOfTable)
-            voxelFeatures=self.tables[level][hashedResult]
-            
-            # Interpolate to smoothen the result and append.
-            interpolatedResult=interpolation(voxelFeatures,fractionalPart)
-            result.append(interpolatedResult)
-        
-        return torch.cat(result,dim=1)      
-
 def loadjson(path):
 
     # Load the metadata from the transforms.json file.
@@ -164,8 +92,6 @@ def importanceSampling(coarse,coarseWeights,numberOfSamples):
 
     return fineSamples
 
-    
-
 def volumeRendering(rgbValues,volumeOpacity,distanceIntervals):
 
     # Alpha encapsulates the contribution of color from each point in the 3D space based on the density at that point.
@@ -185,11 +111,11 @@ def volumeRendering(rgbValues,volumeOpacity,distanceIntervals):
 def projectThoseRaysFromEveryPixelASAP(height,width,camera_angle_x,transform):
 
     # Calculate the focal length initialize coordinate matrices.
-    fclen=0.5*width/torch.tan(0.5*camera_angle_x)
+    fclen=0.5*width/torch.tan(torch.tensor(0.5*camera_angle_x))
     
-    zdir=torch.ones([height,width],dtype=float)
-    rows=torch.zeros([height,width],dtype=float)
-    cols=torch.zeros([height,width],dtype=float)
+    zdir=torch.ones((height,width),dtype=float)
+    rows=torch.zeros((height,width),dtype=float)
+    cols=torch.zeros((height,width),dtype=float)
     
     
     # Create grids.
@@ -207,11 +133,13 @@ def projectThoseRaysFromEveryPixelASAP(height,width,camera_angle_x,transform):
             count+=1
         count=0
     
-    for i,j in cols:
-        cols[i,j]=(cols[i,j]-height/2)/fclen
+    for i in range(len(cols)):
+        for j in range(len(cols[i])):
+            cols[i,j]=(cols[i,j]-height/2)/fclen
     
-    for i,j in rows:
-        rows[i,j]=(rows[i,j]-height/2)/fclen    
+    for i in range(len(rows)):
+        for j in range(len(rows[i])):
+            rows[i,j]=(rows[i,j]-height/2)/fclen    
     
     # Initialize a matrix to hold the direction of the rays and copy the values relevantly.
     rays=torch.zeros([height,width,3],dtype=float)
@@ -221,17 +149,94 @@ def projectThoseRaysFromEveryPixelASAP(height,width,camera_angle_x,transform):
             rays[i,j,0]=cols[i,j]
             rays[i,j,1]=rows[i,j]
             rays[i,j,2]=zdir[i,j]
-    
+
     # This matrix tells us about the extrinsic parameters of the camera which describe its orientation and position in 3D space.
-    transform=torch.array(transform)
+    transform=torch.tensor(transform)
 
     # Tranform the directional rays from being relative to the camera to the general 3D space.
-    raysIn3DSpace=torch.sum(rays[...,torch.newaxis,:]*transform[:3,:3],axis=-1)
+    raysIn3DSpace=sum(rays[...,torch.newaxis,:]*transform[:3,:3])
 
     # Make sure the origin is the same for all rays.
     raysFromOrigin=torch.broadcast_to(transform[:3,3],raysIn3DSpace)
 
-    return raysFromOrigin,raysIn3DSpace
+    return raysFromOrigin,torch.tensor(raysIn3DSpace)
+
+
+def hasher(ind,size): return ind%size
+
+def interpolation(features,fractionalPart):
+
+    x=fractionalPart[:,0].unsqueeze(1)*features[:,1]+(1-fractionalPart[:,0].unsqueeze(1))*features[:,0]
+    
+    y=fractionalPart[:,1].unsqueeze(1)*features[:,3]+(1-fractionalPart[:,1].unsqueeze(1))*features[:,2]
+    
+    z=fractionalPart[:,2].unsqueeze(1)*features[:,5]+(1-fractionalPart[:,2].unsqueeze(1))*features[:,4]
+
+    return (x+y+z)/3
+
+class mlp(nn.Module):
+
+    def __init__(self,hashencoding,hiddenLayer,finalLayer):
+        
+        # Initialize the parent class.
+        super(mlp,self).__init__()
+
+        # Apply a multi-resolution hash encoding to the input.
+        self.hashencoding=hashencoding
+        inputDim=hashencoding.levels*hashencoding.features
+        
+        # Unique layers in the MLP.
+        self.fcin=nn.Linear(inputDim,hiddenLayer)
+        self.fcmid=nn.Linear(hiddenLayer,hiddenLayer)
+        self.fcout=nn.Linear(hiddenLayer,finalLayer)
+    
+    def forward(self,x):
+
+        x=F.relu(self.fcin(self.hashencoding(x)))
+        x=F.relu(self.fcmid(x))
+        x=self.fcout(x)
+        
+        return x
+
+class multiResolutionHashEncoding(nn.Module):
+
+    def __init__(self,levels,features,sizeOfTable):
+        
+        # Initialize the parent class.
+        super().__init__()
+        
+        self.levels=levels
+        self.features=features
+        self.sizeOfTable=sizeOfTable
+        
+        #for every resolution varying from coarser to the finer ones, hash tables are created
+        self.tables=[]
+        for _ in range(levels):
+            self.tables.append(nn.Parameter(torch.randn(sizeOfTable,features)))
+        #self.tables=nn.ModuleList([nn.Parameter(torch.randn(sizeOfTable,features)) for _ in range(levels)])
+    
+    def forward(self,x):
+        
+        # Initialize the result and Iterate over all the levels.
+        result=[]
+        
+        for level in range(self.levels):
+
+            gridResolution=2**(level+1)
+            
+            # Get the voxel that encloses that 3D space point.
+            voxelCoordinates=np.floor(x*gridResolution).long()
+            fractionalPart=x*gridResolution-voxelCoordinates
+
+            # Get a feature vector after hashing the voxel coordinates.
+            hashedResult=hasher(voxelCoordinates.sum(dim=1),self.sizeOfTable)
+            voxelFeatures=self.tables[level][hashedResult]
+            
+            # Interpolate to smoothen the result and append.
+            interpolatedResult=interpolation(voxelFeatures,fractionalPart)
+            result.append(interpolatedResult)
+        
+        return torch.cat(result,dim=1)      
 
 
 def trainNerf(epochs,batchSize,coarseNet,fineNet,optimizer,images,transforms,height,width,camera_angle_x):
@@ -313,8 +318,8 @@ if __name__=="__main__":
     
     # Instantiate the Coarse and Fine networks.
     hashencoding=multiResolutionHashEncoding(levels=16,sizeOfTable=2**19,features=2)
-    coarseNet=mlp(hashencoding=hashencoding)
-    fineNet=mlp(hashencoding=hashencoding)
+    coarseNet=mlp(hashencoding=hashencoding,hiddenLayer=256,finalLayer=4)
+    fineNet=mlp(hashencoding=hashencoding,hiddenLayer=256,finalLayer=4)
     
     # Train!!!.
     optimizer=optim.Adam(list(coarseNet.parameters())+list(fineNet.parameters()),lr=1e-3)
