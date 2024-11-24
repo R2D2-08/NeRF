@@ -1,11 +1,10 @@
 # Neural Radiance Fields with a Multi-Resolution Hash Encoding
 
-(Still working on finishing the project)
-This project is an implementation of a Neural Radiance Field pipeline with a Multiresolution Hash Encoding. The model takes as input, 5 Dimensional values and produces 3D-rendered images by volume rendering. This repository supports training NeRF models on datasets generated with **COLMAP** using your own images.
+This project was supposed to be a successful implementation of a Neural Radiance Field pipeline with a Multiresolution Hash Encoding but it is NOT, the logic involved in the research papers has been implemented to the best of my ability. The model takes as input, 5 Dimensional values and produces 3D-rendered images by volume rendering. This repository could support training NeRF models on nerf synthetic datasets.
 
 ![NeRF Training. Source: Mildenhall et al.](assets/nerf-training.png)
 
-## Project Overview
+## Overview
 
 NeRF is a method for generating novel views of complex 3D scenes or 3D objects by training a Feed Forward Network (MLP) to optimize over a volumetric scene function. The implementation involves:
 - An MLP to output RGB and density values by processing the 5 dimensional input.
@@ -23,21 +22,6 @@ NeRF is a method for generating novel views of complex 3D scenes or 3D objects b
 
 
 ![Multiresolution Hash Encoding. Source: Müller et al.](assets/multiresolution-hash-encoding.png)
-
-
-- **COLMAP dataset compatibility** for easy integration with 3D scanned or photogrammetry-based datasets.
-
-
-## Dataset and Preprocessing
-
-This NeRF pipeline is compatible with datasets in the format used by COLMAP. To use your own dataset:
-1. Capture images of your scene and process them with COLMAP to get camera poses.
-2. Generate a `transforms.json` file that contains:
-   - `camera_angle_x`: Horizontal field of view of the camera.
-   - `frames`: List of frames with their corresponding camera poses.
-   - `transform_matrix`: Transformation matrix for each frame.
-
-Ensure that the `transforms.json` file is located in the dataset directory.
 
 ## Installation
 
