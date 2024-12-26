@@ -1,6 +1,6 @@
 # Neural Radiance Fields with a Multi-Resolution Hash Encoding
 
-This repository was supposed to be a successful implementation of a Neural Radiance Field pipeline with a Multiresolution Hash Encoding but it is NOT that, the logic involved in the research papers has been implemented to the best of my ability, needless to say none of the code acctually works. The model takes as input, 5 Dimensional values and produces 3D-rendered images by volume rendering. This repository could support training NeRF models on nerf synthetic datasets.
+This repository is supposed to be a successful implementation of a Neural Radiance Field pipeline with a Multiresolution Hash Encoding but it is not complete yet, the logic involved in the research papers has been implemented to the best of my ability, the basic nerf model can be trained after pre-processing the data using the relevant py file. The model takes as input, 5 Dimensional values and produces 3D-rendered images by volume rendering. This repository supports training NeRF models on nerf synthetic datasets.
 
 ![NeRF Training. Source: Mildenhall et al.](assets/nerf-training.png)
 
